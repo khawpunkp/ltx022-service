@@ -1,9 +1,13 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AppModel } from './app.model';
 
 @Injectable()
 export class AppService {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly appModel: AppModel,
+  ) {}
 
   async getLastVideo() {
     const playlistId = this.configService.get('LTX_PLAYLIST_ID');
@@ -35,6 +39,20 @@ export class AppService {
       console.error('Error fetching last seen videos:', error.message);
       throw new HttpException(
         'Failed to fetch last seen videos',
+        HttpStatus.BAD_REQUEST,
+        { cause: error },
+      );
+    }
+  }
+
+  async getCardList() {
+    try {
+      const list = this.appModel.getCardList();
+      return list;
+    } catch (error) {
+      console.error('Error fetching card list:', error.message);
+      throw new HttpException(
+        'Failed to fetch card list',
         HttpStatus.BAD_REQUEST,
         { cause: error },
       );

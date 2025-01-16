@@ -1,0 +1,10 @@
+model Rarity {
+   id    Int    @id @default(autoincrement())
+   code  String
+   title String
+   rare  Int
+   Card  Card[]
+
+   @@unique([id, rare])
+   @@unique([id, code])
+}

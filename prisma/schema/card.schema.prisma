@@ -1,0 +1,7 @@
+model Card {
+   id       Int    @id @default(autoincrement())
+   code     String
+   imgSrc   String
+   rarityId Int
+   rarity   Rarity @relation(fields: [rarityId], references: [id])
+}

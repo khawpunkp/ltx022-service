@@ -9,4 +9,9 @@ export class AppController {
   lastVideo() {
     return this.appService.getLastVideo();
   }
+
+  @Get('/card-list')
+  cardList() {
+    return this.appService.getCardList();
+  }
 }
