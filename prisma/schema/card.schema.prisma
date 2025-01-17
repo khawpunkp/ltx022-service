@@ -4,5 +4,6 @@ model Card {
    imgSrc        String
    rarityId      Int
    rarity        Rarity @relation(fields: [rarityId], references: [id])
-   @@unique([id, runningNumber])
+
+   @@unique([rarityId, runningNumber])
 }

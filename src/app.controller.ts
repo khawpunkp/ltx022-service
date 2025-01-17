@@ -1,5 +1,13 @@
-import { Controller, Get } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Post,
+  UploadedFiles,
+  UseInterceptors,
+} from '@nestjs/common';
 import { AppService } from './app.service';
+import { AnyFilesInterceptor } from '@nestjs/platform-express';
 
 @Controller()
 export class AppController {
@@ -13,5 +21,14 @@ export class AppController {
   @Get('/card-list')
   cardList() {
     return this.appService.getCardList();
+  }
+
+  @Post('/upload/:code')
+  @UseInterceptors(AnyFilesInterceptor())
+  uploadFile(
+    @UploadedFiles() files: Array<Express.Multer.File>,
+    @Param('code') code: string,
+  ) {
+    return this.appService.uploadCardsByRarity(code, files);
   }
 }

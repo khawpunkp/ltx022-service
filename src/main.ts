@@ -32,6 +32,6 @@ async function bootstrap() {
    //NOTE: Api Prefix
    app.setGlobalPrefix(configService.get('API_PREFIX') || '/api');
    app.useGlobalPipes(new ValidationPipe());
-   await app.listen(configService.get('APP_PORT') || 3000);
+   await app.listen(configService.get('APP_PORT') || 3001);
 }
 bootstrap();

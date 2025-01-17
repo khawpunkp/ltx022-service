@@ -1,6 +1,8 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppModel } from './app.model';
+import { createClient } from '@supabase/supabase-js';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class AppService {
@@ -56,6 +58,98 @@ export class AppService {
         HttpStatus.BAD_REQUEST,
         { cause: error },
       );
+    }
+  }
+
+  async uploadCardsByRarity(code: string, files: Array<Express.Multer.File>) {
+    const supabaseUrl = this.configService.get('SUPABASE_URL');
+    const supabaseKey = this.configService.get('SUPABASE_API_KEY');
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    try {
+      // Step 1: Validate Rarity
+      const rarity = await this.appModel.findRarityByCode(code);
+      if (!rarity) throw new Error('Rarity not found!');
+      if (files.length === 0) throw new Error('No files provided!');
+
+      // Step 2: Transform Multer Files to Browser-compatible Files
+      const transformFiles: File[] = files.map((file) => {
+        return new File([file.buffer], file.originalname, {
+          type: file.mimetype,
+        });
+      });
+
+      // Step 3: Upload Files Concurrently
+      const uploadPromises = transformFiles.map(async (file) => {
+        const filePath = `${code}/${Date.now()}-${file.name}`;
+        const runningNumber = parseInt(file.name.split('.')[0]);
+
+        // Upload the file to Supabase Storage
+        const { data: uploadedData, error: uploadedError } =
+          await supabase.storage.from('ltx022-card').upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false, // Avoid overwriting existing files
+          });
+
+        if (uploadedError) {
+          console.error(
+            `Failed to upload ${file.name}: ${uploadedError.message}`,
+          );
+          throw new Error(
+            `Failed to upload ${file.name}: ${uploadedError.message}`,
+          );
+        }
+
+        console.log(`Uploaded ${file.name} successfully:`, uploadedData);
+
+        // Generate Public URL
+        const { data: publicUrl } = supabase.storage
+          .from('ltx022-card')
+          .getPublicUrl(filePath);
+
+        // Prepare card data for insertion into the database
+        const cardData: Prisma.CardUncheckedCreateInput = {
+          runningNumber,
+          imgSrc: publicUrl.publicUrl,
+          rarityId: rarity.id,
+        };
+
+        try {
+          // Insert card data into the database
+          await this.appModel.createCard(cardData);
+        } catch (error) {
+          throw new Error(
+            `Database error while saving card data for ${file.name}: ${error.message}`,
+          );
+        }
+
+        return runningNumber;
+      });
+
+      // Wait for all uploads to complete
+      const results = await Promise.allSettled(uploadPromises);
+
+      // Separate successful and failed uploads
+      const successfulUploads = results
+        .filter((result) => result.status === 'fulfilled')
+        .map((result) => (result as PromiseFulfilledResult<any>).value);
+
+      const failedUploads = results
+        .filter((result) => result.status === 'rejected')
+        .map((result) => (result as PromiseRejectedResult).reason);
+
+      return {
+        success: failedUploads.length === 0,
+        message: `${successfulUploads.length} files uploaded successfully, ${failedUploads.length} failed.`,
+        successfulUploads,
+        failedUploads,
+      };
+    } catch (error) {
+      console.error('Error uploading files:', error.message);
+      return {
+        success: false,
+        message: error.message,
+      };
     }
   }
 }
