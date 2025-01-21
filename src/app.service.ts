@@ -100,8 +100,6 @@ export class AppService {
           );
         }
 
-        console.log(`Uploaded ${file.name} successfully:`, uploadedData);
-
         // Generate Public URL
         const { data: publicUrl } = supabase.storage
           .from('ltx022-card')
@@ -123,7 +121,7 @@ export class AppService {
           );
         }
 
-        return runningNumber;
+        return { runningNumber };
       });
 
       // Wait for all uploads to complete
@@ -136,7 +134,12 @@ export class AppService {
 
       const failedUploads = results
         .filter((result) => result.status === 'rejected')
-        .map((result) => (result as PromiseRejectedResult).reason);
+        .map((result) => {
+          const errorReason = (result as PromiseRejectedResult).reason;
+          const runningNumber =
+            errorReason?.message?.match(/\d+/)?.[0] || 'N/A';
+          return { error: errorReason.message, runningNumber }; // Include runningNumber in the failure report
+        });
 
       return {
         success: failedUploads.length === 0,

@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 
 const allowedOrigins = [
    'https://missyouluna.vercel.app',
+   'https://ltx022-fanweb.vercel.app',
    'http://localhost:3000',
 ]
 
