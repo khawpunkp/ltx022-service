@@ -6,12 +6,12 @@ import { AppModel } from './app.model';
 import { PrismaService } from './prisma/prisma.service';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
-  ],
-  controllers: [AppController],
-  providers: [AppService, AppModel, PrismaService],
+   imports: [
+      ConfigModule.forRoot({
+         isGlobal: true,
+      }),
+   ],
+   controllers: [AppController],
+   providers: [AppService, AppModel, PrismaService],
 })
 export class AppModule {}
