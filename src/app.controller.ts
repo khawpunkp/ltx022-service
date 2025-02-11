@@ -23,6 +23,11 @@ export class AppController {
       return this.appService.getCardList();
    }
 
+   @Get('/home-img')
+   homeImage() {
+      return this.appService.getHomeImage();
+   }
+
    @Post('/upload/:code')
    @UseInterceptors(AnyFilesInterceptor())
    uploadFile(
@@ -30,5 +35,13 @@ export class AppController {
       @Param('code') code: string,
    ) {
       return this.appService.uploadCardsByRarity(code, files);
+   }
+
+   @Post('/upload-home')
+   @UseInterceptors(AnyFilesInterceptor())
+   uploadHomeImage(
+      @UploadedFiles() files: Array<Express.Multer.File>,
+   ) {
+      return this.appService.uploadHomeImage(files);
    }
 }

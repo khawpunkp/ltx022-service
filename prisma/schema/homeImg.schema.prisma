@@ -1,0 +1,5 @@
+model HomeImage {
+   id           Int     @id @default(autoincrement())
+   imgSrc       String
+   currentEvent Boolean @default(false)
+}

@@ -18,6 +18,15 @@ export class AppModel {
       }
    }
 
+   async getHomeImage() {
+      try {
+         const list = await this.prisma.homeImage.findMany();
+         return list;
+      } catch (error) {
+         throw error;
+      }
+   }
+
    async findRarityByCode(code: string) {
       try {
          const rarity = await this.prisma.rarity.findFirst({ where: { code } });
@@ -30,6 +39,14 @@ export class AppModel {
    async createCard(data: Prisma.CardUncheckedCreateInput) {
       try {
          await this.prisma.card.create({ data });
+      } catch (error) {
+         throw error;
+      }
+   }
+
+   async createHomeImage(data: Prisma.HomeImageCreateInput) {
+      try {
+         await this.prisma.homeImage.create({ data });
       } catch (error) {
          throw error;
       }

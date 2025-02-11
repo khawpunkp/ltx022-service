@@ -11,6 +11,10 @@ export class AppService {
       private readonly appModel: AppModel,
    ) {}
 
+   protected readonly supabaseUrl = this.configService.get('SUPABASE_URL');
+   protected readonly supabaseKey = this.configService.get('SUPABASE_API_KEY');
+   protected readonly supabase = createClient(this.supabaseUrl, this.supabaseKey);
+
    async getLastVideo() {
       const playlistId = this.configService.get('LTX_PLAYLIST_ID');
       const key = this.configService.get('YOUTUBE_API_KEY');
@@ -61,11 +65,21 @@ export class AppService {
       }
    }
 
-   async uploadCardsByRarity(code: string, files: Array<Express.Multer.File>) {
-      const supabaseUrl = this.configService.get('SUPABASE_URL');
-      const supabaseKey = this.configService.get('SUPABASE_API_KEY');
-      const supabase = createClient(supabaseUrl, supabaseKey);
+   async getHomeImage() {
+      try {
+         const list = this.appModel.getHomeImage();
+         return list;
+      } catch (error) {
+         console.error('Error fetching home image:', error.message);
+         throw new HttpException(
+            'Failed to fetch home image',
+            HttpStatus.BAD_REQUEST,
+            { cause: error },
+         );
+      }
+   }
 
+   async uploadCardsByRarity(code: string, files: Array<Express.Multer.File>) {
       try {
          // Step 1: Validate Rarity
          const rarity = await this.appModel.findRarityByCode(code);
@@ -86,7 +100,7 @@ export class AppService {
 
             // Upload the file to Supabase Storage
             const { data: uploadedData, error: uploadedError } =
-               await supabase.storage
+               await this.supabase.storage
                   .from('ltx022-card')
                   .upload(filePath, file, {
                      cacheControl: '3600',
@@ -103,7 +117,7 @@ export class AppService {
             }
 
             // Generate Public URL
-            const { data: publicUrl } = supabase.storage
+            const { data: publicUrl } = this.supabase.storage
                .from('ltx022-card')
                .getPublicUrl(filePath);
 
@@ -141,6 +155,89 @@ export class AppService {
                const runningNumber =
                   errorReason?.message?.match(/\d+/)?.[0] || 'N/A';
                return { error: errorReason.message, runningNumber }; // Include runningNumber in the failure report
+            });
+
+         return {
+            success: failedUploads.length === 0,
+            message: `${successfulUploads.length} files uploaded successfully, ${failedUploads.length} failed.`,
+            successfulUploads,
+            failedUploads,
+         };
+      } catch (error) {
+         console.error('Error uploading files:', error.message);
+         return {
+            success: false,
+            message: error.message,
+         };
+      }
+   }
+
+   async uploadHomeImage(files: Array<Express.Multer.File>) {
+      try {
+         // Step 1: Transform Multer Files to Browser-compatible Files
+         const transformFiles: File[] = files.map((file) => {
+            return new File([file.buffer], file.originalname, {
+               type: file.mimetype,
+            });
+         });
+
+         // Step 2: Upload Files Concurrently
+         const uploadPromises = transformFiles.map(async (file) => {
+            const filePath = `${file.name}-${Date.now()}`;
+
+            // Upload the file to Supabase Storage
+            const { data: uploadedData, error: uploadedError } =
+               await this.supabase.storage
+                  .from('home')
+                  .upload(filePath, file, {
+                     cacheControl: '3600',
+                     upsert: false, // Avoid overwriting existing files
+                  });
+
+            if (uploadedError) {
+               console.error(
+                  `Failed to upload ${file.name}: ${uploadedError.message}`,
+               );
+               throw new Error(
+                  `Failed to upload ${file.name}: ${uploadedError.message}`,
+               );
+            }
+
+            // Generate Public URL
+            const { data: publicUrl } = this.supabase.storage
+               .from('home')
+               .getPublicUrl(filePath);
+
+            // Prepare card data for insertion into the database
+            const data: Prisma.HomeImageCreateInput = {
+               imgSrc: publicUrl.publicUrl,
+            };
+
+            try {
+               // Insert card data into the database
+               await this.appModel.createHomeImage(data);
+            } catch (error) {
+               throw new Error(
+                  `Database error while saving card data for ${file.name}: ${error.message}`,
+               );
+            }
+
+            return;
+         });
+
+         // Wait for all uploads to complete
+         const results = await Promise.allSettled(uploadPromises);
+
+         // Separate successful and failed uploads
+         const successfulUploads = results
+            .filter((result) => result.status === 'fulfilled')
+            .map((result) => (result as PromiseFulfilledResult<any>).value);
+
+         const failedUploads = results
+            .filter((result) => result.status === 'rejected')
+            .map((result) => {
+               const errorReason = (result as PromiseRejectedResult).reason;
+               return { error: errorReason.message };
             });
 
          return {
